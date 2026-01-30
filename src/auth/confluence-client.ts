@@ -4,6 +4,7 @@ export interface ConfluenceRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   queryParams?: Record<string, string | number | boolean | undefined>;
+  apiVersion?: "v1" | "v2";
 }
 
 export interface ConfluenceErrorResponse {
@@ -102,16 +103,20 @@ export class ConfluenceClient {
    */
   private buildUrl(
     path: string,
-    queryParams?: Record<string, string | number | boolean | undefined>
+    queryParams?: Record<string, string | number | boolean | undefined>,
+    apiVersion: "v1" | "v2" = "v2"
   ): string {
     let baseUrl: string;
 
+    // Determine the API path prefix based on version
+    const apiPath = apiVersion === "v1" ? "/wiki/rest/api" : "/wiki/api/v2";
+
     if (this.config.tokenType === "scoped") {
       // Scoped tokens use api.atlassian.com with cloudId
-      baseUrl = `https://api.atlassian.com/ex/confluence/${this.cloudId}/wiki/api/v2`;
+      baseUrl = `https://api.atlassian.com/ex/confluence/${this.cloudId}${apiPath}`;
     } else {
       // Classic tokens use the direct site URL
-      baseUrl = `${this.config.host}/wiki/api/v2`;
+      baseUrl = `${this.config.host}${apiPath}`;
     }
 
     const url = new URL(`${baseUrl}${path}`);
@@ -146,8 +151,8 @@ export class ConfluenceClient {
     // Ensure we're initialized (fetches cloudId if needed)
     await this.ensureInitialized();
 
-    const { method = "GET", body, queryParams } = options;
-    const url = this.buildUrl(path, queryParams);
+    const { method = "GET", body, queryParams, apiVersion = "v2" } = options;
+    const url = this.buildUrl(path, queryParams, apiVersion);
 
     const headers: Record<string, string> = {
       Authorization: this.getAuthHeader(),
@@ -234,6 +239,14 @@ export class ConfluenceClient {
     queryParams?: Record<string, string | number | boolean | undefined>
   ): Promise<T> {
     return this.request<T>(path, { method: "GET", queryParams });
+  }
+
+  // REST API v1 methods (for endpoints not available in v2, like CQL search)
+  async getV1<T>(
+    path: string,
+    queryParams?: Record<string, string | number | boolean | undefined>
+  ): Promise<T> {
+    return this.request<T>(path, { method: "GET", queryParams, apiVersion: "v1" });
   }
 
   async post<T>(

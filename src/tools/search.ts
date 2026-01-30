@@ -89,10 +89,8 @@ export async function handleSearchTool(
       if (input.cursor) queryParams["cursor"] = input.cursor;
       if (input.limit) queryParams["limit"] = input.limit;
 
-      // Note: Search endpoint uses /wiki/rest/api/search (v1 API) as v2 doesn't have full search
-      // We need to call the v1 API for search functionality
-      // The client will handle this appropriately
-      return client.get<ConfluenceSearchResult>("/search", queryParams);
+      // Search uses v1 API (/wiki/rest/api/search) as v2 doesn't have CQL search
+      return client.getV1<ConfluenceSearchResult>("/search", queryParams);
     }
 
     case "confluence_search_content": {
@@ -122,7 +120,8 @@ export async function handleSearchTool(
 
       if (input.limit) queryParams["limit"] = input.limit;
 
-      return client.get<ConfluenceSearchResult>("/search", queryParams);
+      // Search uses v1 API (/wiki/rest/api/search) as v2 doesn't have CQL search
+      return client.getV1<ConfluenceSearchResult>("/search", queryParams);
     }
 
     default:
