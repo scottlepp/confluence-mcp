@@ -51,8 +51,9 @@ export function getConfig(): AgentConfig {
   const githubToken = process.env.GITHUB_TOKEN;
 
   // GitHub Models: enabled by default, uses GITHUB_TOKEN for auth (set USE_GITHUB_MODELS=false to disable)
+  // Note: Claude models are NOT available on GitHub Models - use OpenAI, Meta, Mistral, or DeepSeek models
   const useGitHubModels = process.env.USE_GITHUB_MODELS !== 'false';
-  const githubModelsModel = process.env.GITHUB_MODELS_MODEL || 'anthropic/claude-sonnet-4.5';
+  const githubModelsModel = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4o';
 
   // Require at least one AI provider (GitHub Models enabled by default, or an API key)
   if (!useGitHubModels && !googleApiKey && !groqApiKey && !openaiApiKey && !anthropicApiKey && !mistralApiKey && !perplexityApiKey && !deepseekApiKey && !openrouterApiKey) {

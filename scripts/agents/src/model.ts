@@ -31,14 +31,15 @@ function getProviderConfigs(): ProviderConfig[] {
 
   return [
     // GitHub Models is the default provider (enabled by default, uses GITHUB_TOKEN)
+    // Note: Claude models are NOT available - use OpenAI, Meta, Mistral, xAI, or DeepSeek models
     {
       name: 'github-models',
       isAvailable: () => !!config.useGitHubModels && !!config.githubToken,
       createModel: () => {
         if (!config.useGitHubModels || !config.githubToken) return null;
         const githubModels = createGitHubModels(config.githubToken);
-        // Default to Claude Sonnet 4.5, can be overridden via GITHUB_MODELS_MODEL env var
-        return githubModels(config.githubModelsModel || 'anthropic/claude-sonnet-4.5');
+        // Default to GPT-4o, can be overridden via GITHUB_MODELS_MODEL env var
+        return githubModels(config.githubModelsModel || 'openai/gpt-4o');
       },
     },
     {
