@@ -94,7 +94,8 @@ jobs:
         id: pr-review-agent
         run: npx tsx scripts/agents/src/agents/pr-review-agent.ts
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT_TOKEN for reviews to allow APPROVE/REQUEST_CHANGES (GITHUB_TOKEN can't approve)
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr-number.outputs.pr_number }}
           PR_DIFF_FILE: pr-diff.patch
