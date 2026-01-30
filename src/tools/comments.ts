@@ -11,7 +11,7 @@ import {
 export const commentTools = [
   {
     name: "confluence_get_page_footer_comments",
-    description: "Get footer comments on a specific page.",
+    description: "Get footer comments on a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -38,7 +38,7 @@ export const commentTools = [
   },
   {
     name: "confluence_get_page_inline_comments",
-    description: "Get inline comments on a specific page.",
+    description: "Get inline comments on a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -70,7 +70,7 @@ export const commentTools = [
   },
   {
     name: "confluence_get_blog_post_footer_comments",
-    description: "Get footer comments on a specific blog post.",
+    description: "Get footer comments on a specific blog post. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

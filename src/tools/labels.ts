@@ -7,7 +7,7 @@ import { ConfluenceLabel, MultiEntityResult } from "../types/confluence.js";
 export const labelTools = [
   {
     name: "confluence_get_page_labels",
-    description: "Get labels on a specific page.",
+    description: "Get labels on a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -73,7 +73,7 @@ export const labelTools = [
   },
   {
     name: "confluence_get_blog_post_labels",
-    description: "Get labels on a specific blog post.",
+    description: "Get labels on a specific blog post. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -139,7 +139,7 @@ export const labelTools = [
   },
   {
     name: "confluence_get_space_labels",
-    description: "Get labels on a specific space.",
+    description: "Get labels on a specific space. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

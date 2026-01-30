@@ -12,7 +12,7 @@ export const pageTools = [
   {
     name: "confluence_get_pages",
     description:
-      "Get all pages. Returns pages filtered by various parameters. Results are paginated.",
+      "Get all pages. Returns pages filtered by various parameters. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -185,7 +185,7 @@ export const pageTools = [
   },
   {
     name: "confluence_get_pages_in_space",
-    description: "Get all pages in a specific space. Results are paginated.",
+    description: "Get all pages in a specific space. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -227,7 +227,7 @@ export const pageTools = [
   },
   {
     name: "confluence_get_pages_for_label",
-    description: "Get all pages with a specific label.",
+    description: "Get all pages with a specific label. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {

@@ -7,7 +7,7 @@ import { ConfluenceVersionDetail, MultiEntityResult } from "../types/confluence.
 export const versionTools = [
   {
     name: "confluence_get_page_versions",
-    description: "Get version history for a specific page.",
+    description: "Get version history for a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -52,7 +52,7 @@ export const versionTools = [
   },
   {
     name: "confluence_get_blog_post_versions",
-    description: "Get version history for a specific blog post.",
+    description: "Get version history for a specific blog post. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

@@ -8,7 +8,7 @@ export const searchTools = [
   {
     name: "confluence_cql_search",
     description:
-      "Search Confluence using CQL (Confluence Query Language). Use this for advanced searches of pages, blog posts, attachments, and comments. Supports complex queries with operators like AND, OR, text~, created>=, etc.",
+      "Search Confluence using CQL (Confluence Query Language). Use this for advanced searches of pages, blog posts, attachments, and comments. Supports complex queries with operators like AND, OR, text~, created>=, etc. Results are paginated - if you don't find what you need, use the returned cursor to fetch more pages until found or no more results.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -32,7 +32,7 @@ export const searchTools = [
   {
     name: "confluence_search_content",
     description:
-      "Simple text search for pages and blog posts by title or content. For more complex searches, use confluence_cql_search instead.",
+      "Simple text search for pages and blog posts by title or content. For more complex searches, use confluence_cql_search instead. Results are paginated - if you don't find what you need, use the returned cursor to fetch more pages until found or no more results.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -60,7 +60,7 @@ export const searchTools = [
   {
     name: "confluence_search_generic_content",
     description:
-      "Search for generic content types: databases, whiteboards, folders, or embeds. NOT for pages or blog posts - use confluence_cql_search or confluence_search_content for those.",
+      "Search for generic content types: databases, whiteboards, folders, or embeds. NOT for pages or blog posts - use confluence_cql_search or confluence_search_content for those. Results are paginated - use the returned cursor to fetch more pages if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

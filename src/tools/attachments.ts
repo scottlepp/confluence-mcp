@@ -7,7 +7,7 @@ import { ConfluenceAttachment, MultiEntityResult } from "../types/confluence.js"
 export const attachmentTools = [
   {
     name: "confluence_get_page_attachments",
-    description: "Get attachments on a specific page.",
+    description: "Get attachments on a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -37,7 +37,7 @@ export const attachmentTools = [
   },
   {
     name: "confluence_get_blog_post_attachments",
-    description: "Get attachments on a specific blog post.",
+    description: "Get attachments on a specific blog post. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

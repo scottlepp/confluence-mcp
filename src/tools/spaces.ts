@@ -12,7 +12,7 @@ export const spaceTools = [
   {
     name: "confluence_get_spaces",
     description:
-      "Get all spaces. Returns spaces filtered by various parameters. Results are paginated.",
+      "Get all spaces. Returns spaces filtered by various parameters. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {

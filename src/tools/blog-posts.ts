@@ -12,7 +12,7 @@ export const blogPostTools = [
   {
     name: "confluence_get_blog_posts",
     description:
-      "Get all blog posts. Returns blog posts filtered by various parameters. Results are paginated.",
+      "Get all blog posts. Returns blog posts filtered by various parameters. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -181,7 +181,7 @@ export const blogPostTools = [
   {
     name: "confluence_get_blog_posts_in_space",
     description:
-      "Get all blog posts in a specific space. Results are paginated.",
+      "Get all blog posts in a specific space. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {

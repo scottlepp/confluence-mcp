@@ -31,7 +31,7 @@ export const userTools = [
   },
   {
     name: "confluence_get_users",
-    description: "Get multiple users. Returns paginated results.",
+    description: "Get multiple users. Results are paginated - use the returned cursor to fetch more pages if you don't find what you need.",
     inputSchema: {
       type: "object" as const,
       properties: {

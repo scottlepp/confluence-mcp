@@ -10,7 +10,7 @@ import {
 export const contentPropertyTools = [
   {
     name: "confluence_get_page_properties",
-    description: "Get content properties for a specific page.",
+    description: "Get content properties for a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {

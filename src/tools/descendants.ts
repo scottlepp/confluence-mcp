@@ -8,7 +8,7 @@ export const descendantTools = [
   {
     name: "confluence_get_page_descendants",
     description:
-      "Get descendants (child pages, grandchildren, etc.) of a specific page.",
+      "Get descendants (child pages, grandchildren, etc.) of a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -30,7 +30,7 @@ export const descendantTools = [
   },
   {
     name: "confluence_get_page_children",
-    description: "Get direct children of a specific page.",
+    description: "Get direct children of a specific page. Results are paginated - use the returned cursor to fetch more if needed.",
     inputSchema: {
       type: "object" as const,
       properties: {
