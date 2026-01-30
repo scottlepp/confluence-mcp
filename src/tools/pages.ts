@@ -106,7 +106,13 @@ export const pageTools = [
         body: {
           type: "string",
           description:
-            "The body content (in storage format: XHTML-based markup)",
+            "The body content. For storage format: XHTML-based markup. For atlas_doc_format: JSON-stringified ADF document.",
+        },
+        bodyFormat: {
+          type: "string",
+          enum: ["storage", "atlas_doc_format"],
+          description:
+            "The format of the body content (default: storage). Use atlas_doc_format for ADF JSON.",
         },
         parentId: {
           type: "string",
@@ -139,7 +145,13 @@ export const pageTools = [
         body: {
           type: "string",
           description:
-            "The new body content (in storage format: XHTML-based markup)",
+            "The new body content. For storage format: XHTML-based markup. For atlas_doc_format: JSON-stringified ADF document.",
+        },
+        bodyFormat: {
+          type: "string",
+          enum: ["storage", "atlas_doc_format"],
+          description:
+            "The format of the body content (default: storage). Use atlas_doc_format for ADF JSON.",
         },
         version: {
           type: "number",
@@ -283,6 +295,7 @@ const CreatePageSchema = z.object({
   spaceId: z.string(),
   title: z.string(),
   body: z.string(),
+  bodyFormat: z.enum(["storage", "atlas_doc_format"]).optional(),
   parentId: z.string().optional(),
   status: z.enum(["current", "draft"]).optional(),
 });
@@ -291,6 +304,7 @@ const UpdatePageSchema = z.object({
   pageId: z.string(),
   title: z.string(),
   body: z.string(),
+  bodyFormat: z.enum(["storage", "atlas_doc_format"]).optional(),
   version: z.number(),
   status: z.enum(["current", "draft"]).optional(),
   versionMessage: z.string().optional(),
@@ -365,12 +379,13 @@ export async function handlePageTool(
 
     case "confluence_create_page": {
       const input = CreatePageSchema.parse(args);
+      const representation = input.bodyFormat || "storage";
 
       const body: Record<string, unknown> = {
         spaceId: input.spaceId,
         title: input.title,
         body: {
-          representation: "storage",
+          representation: representation,
           value: input.body,
         },
       };
@@ -383,13 +398,14 @@ export async function handlePageTool(
 
     case "confluence_update_page": {
       const input = UpdatePageSchema.parse(args);
+      const representation = input.bodyFormat || "storage";
 
       const body: Record<string, unknown> = {
         id: input.pageId,
         status: input.status || "current",
         title: input.title,
         body: {
-          representation: "storage",
+          representation: representation,
           value: input.body,
         },
         version: {
