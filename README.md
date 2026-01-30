@@ -4,14 +4,20 @@ A Model Context Protocol (MCP) server that provides AI models with full access t
 
 ## Installation
 
+Run directly from GitHub:
+
 ```bash
-npx confluence-mcp
+npx -y https://github.com/scottlepp/confluence-mcp
 ```
 
-Or install globally:
+Or clone and build locally:
 
 ```bash
-npm install -g confluence-mcp
+git clone https://github.com/scottlepp/confluence-mcp.git
+cd confluence-mcp
+npm install
+npm run build
+node build/index.js
 ```
 
 ## Configuration
@@ -57,7 +63,7 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "confluence": {
       "command": "npx",
-      "args": ["-y", "confluence-mcp"],
+      "args": ["-y", "https://github.com/scottlepp/confluence-mcp"],
       "env": {
         "CONFLUENCE_HOST": "https://yourcompany.atlassian.net",
         "CONFLUENCE_EMAIL": "your-email@example.com",
@@ -75,7 +81,7 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "confluence": {
       "command": "npx",
-      "args": ["-y", "confluence-mcp"],
+      "args": ["-y", "https://github.com/scottlepp/confluence-mcp"],
       "env": {
         "CONFLUENCE_HOST": "https://yourcompany.atlassian.net",
         "CONFLUENCE_EMAIL": "your-email@example.com",
