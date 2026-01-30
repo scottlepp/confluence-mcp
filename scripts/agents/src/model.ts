@@ -1,13 +1,22 @@
 import { LanguageModel } from 'ai';
 import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
-import { openai } from '@ai-sdk/openai';
+import { openai, createOpenAI } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { mistral } from '@ai-sdk/mistral';
 import { perplexity } from '@ai-sdk/perplexity';
 import { deepseek } from '@ai-sdk/deepseek';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { getConfig } from './config.js';
+
+// GitHub Models provider - uses OpenAI-compatible API at models.github.ai
+function createGitHubModels(githubToken: string) {
+  return createOpenAI({
+    baseURL: 'https://models.github.ai/inference',
+    apiKey: githubToken,
+    name: 'github-models',
+  });
+}
 
 // Provider configurations with their default models
 interface ProviderConfig {
@@ -20,6 +29,17 @@ function getProviderConfigs(): ProviderConfig[] {
   const config = getConfig();
 
   return [
+    // GitHub Models is the default provider (enabled by default, uses GITHUB_TOKEN)
+    {
+      name: 'github-models',
+      isAvailable: () => !!config.useGitHubModels && !!config.githubToken,
+      createModel: () => {
+        if (!config.useGitHubModels || !config.githubToken) return null;
+        const githubModels = createGitHubModels(config.githubToken);
+        // Default to Claude Sonnet 4.5, can be overridden via GITHUB_MODELS_MODEL env var
+        return githubModels(config.githubModelsModel || 'anthropic/claude-sonnet-4.5');
+      },
+    },
     {
       name: 'google',
       isAvailable: () => !!config.googleApiKey,
