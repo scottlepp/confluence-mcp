@@ -13,7 +13,8 @@ describe("tools", () => {
       expect(allTools.some((t) => t.name === "confluence_get_spaces")).toBe(true);
 
       // Check for search tools
-      expect(allTools.some((t) => t.name === "confluence_search")).toBe(true);
+      expect(allTools.some((t) => t.name === "confluence_cql_search")).toBe(true);
+      expect(allTools.some((t) => t.name === "confluence_search_generic_content")).toBe(true);
 
       // Check for user tools
       expect(allTools.some((t) => t.name === "confluence_get_current_user")).toBe(true);

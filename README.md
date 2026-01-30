@@ -155,8 +155,9 @@ Add to your Claude Desktop configuration file:
 
 ### Search
 
-- `confluence_search` - Search using CQL (Confluence Query Language)
-- `confluence_search_content` - Search content by text
+- `confluence_cql_search` - Advanced search using CQL (Confluence Query Language) for pages, blog posts, attachments, comments
+- `confluence_search_content` - Simple text search for pages and blog posts
+- `confluence_search_generic_content` - Search for databases, whiteboards, folders, or embeds (NOT for pages/blog posts)
 
 ### Users
 
@@ -218,7 +219,7 @@ When creating or updating content, use the storage format:
 
 ## CQL Search Examples
 
-The `confluence_search` tool uses Confluence Query Language (CQL):
+The `confluence_cql_search` tool uses Confluence Query Language (CQL):
 
 ```
 # Search by content type

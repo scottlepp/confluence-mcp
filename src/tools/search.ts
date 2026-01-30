@@ -6,9 +6,9 @@ import { ConfluenceSearchResult } from "../types/confluence.js";
 
 export const searchTools = [
   {
-    name: "confluence_search",
+    name: "confluence_cql_search",
     description:
-      "Search Confluence content using CQL (Confluence Query Language). Returns pages, blog posts, attachments, and other content matching the query.",
+      "Search Confluence using CQL (Confluence Query Language). Use this for advanced searches of pages, blog posts, attachments, and comments. Supports complex queries with operators like AND, OR, text~, created>=, etc.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -32,7 +32,7 @@ export const searchTools = [
   {
     name: "confluence_search_content",
     description:
-      "Search for content (pages and blog posts) by title or content text.",
+      "Simple text search for pages and blog posts by title or content. For more complex searches, use confluence_cql_search instead.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -57,10 +57,43 @@ export const searchTools = [
       required: ["query"],
     },
   },
+  {
+    name: "confluence_search_generic_content",
+    description:
+      "Search for generic content types: databases, whiteboards, folders, or embeds. NOT for pages or blog posts - use confluence_cql_search or confluence_search_content for those.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        type: {
+          type: "string",
+          enum: ["DATABASES", "WHITEBOARDS", "FOLDERS", "EMBEDS"],
+          description:
+            "The type of generic content to search for. Must be one of: DATABASES, WHITEBOARDS, FOLDERS, EMBEDS",
+        },
+        spaceId: {
+          type: "string",
+          description: "Filter by space ID",
+        },
+        title: {
+          type: "string",
+          description: "Filter by title (partial match)",
+        },
+        cursor: {
+          type: "string",
+          description: "Cursor for pagination (from previous response)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default 25, max 250)",
+        },
+      },
+      required: ["type"],
+    },
+  },
 ];
 
 // Input schemas for validation
-const SearchSchema = z.object({
+const CqlSearchSchema = z.object({
   cql: z.string(),
   cursor: z.string().optional(),
   limit: z.number().optional(),
@@ -73,6 +106,14 @@ const SearchContentSchema = z.object({
   limit: z.number().optional(),
 });
 
+const SearchGenericContentSchema = z.object({
+  type: z.enum(["DATABASES", "WHITEBOARDS", "FOLDERS", "EMBEDS"]),
+  spaceId: z.string().optional(),
+  title: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().optional(),
+});
+
 // Tool handlers
 export async function handleSearchTool(
   client: ConfluenceClient,
@@ -80,8 +121,8 @@ export async function handleSearchTool(
   args: unknown
 ): Promise<unknown> {
   switch (toolName) {
-    case "confluence_search": {
-      const input = SearchSchema.parse(args);
+    case "confluence_cql_search": {
+      const input = CqlSearchSchema.parse(args);
       const queryParams: Record<string, string | number | boolean | undefined> =
         {};
 
@@ -89,7 +130,7 @@ export async function handleSearchTool(
       if (input.cursor) queryParams["cursor"] = input.cursor;
       if (input.limit) queryParams["limit"] = input.limit;
 
-      // Search uses v1 API (/wiki/rest/api/search) as v2 doesn't have CQL search
+      // CQL search uses v1 API (/wiki/rest/api/search) as v2 doesn't have CQL search
       return client.getV1<ConfluenceSearchResult>("/search", queryParams);
     }
 
@@ -120,8 +161,23 @@ export async function handleSearchTool(
 
       if (input.limit) queryParams["limit"] = input.limit;
 
-      // Search uses v1 API (/wiki/rest/api/search) as v2 doesn't have CQL search
+      // Content search uses v1 API (/wiki/rest/api/search) with CQL
       return client.getV1<ConfluenceSearchResult>("/search", queryParams);
+    }
+
+    case "confluence_search_generic_content": {
+      const input = SearchGenericContentSchema.parse(args);
+      const queryParams: Record<string, string | number | boolean | undefined> =
+        {};
+
+      queryParams["type"] = input.type;
+      if (input.spaceId) queryParams["space-id"] = input.spaceId;
+      if (input.title) queryParams["title"] = input.title;
+      if (input.cursor) queryParams["cursor"] = input.cursor;
+      if (input.limit) queryParams["limit"] = input.limit;
+
+      // Generic content search uses v2 API /search endpoint
+      return client.get<unknown>("/search", queryParams);
     }
 
     default:
