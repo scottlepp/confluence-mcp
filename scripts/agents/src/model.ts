@@ -10,14 +10,36 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { getConfig } from './config.js';
 
+// GitHub Models API endpoint
+const GITHUB_MODELS_BASE_URL = 'https://models.github.ai/inference';
+
 // GitHub Models provider - uses OpenAI-compatible API at models.github.ai
 function createGitHubModels(githubToken: string) {
   return createOpenAICompatible({
-    baseURL: 'https://models.github.ai/inference',
+    baseURL: GITHUB_MODELS_BASE_URL,
     apiKey: githubToken,
     name: 'github-models',
   });
 }
+
+/**
+ * Get a list of available GitHub Models model IDs
+ * See: https://github.com/marketplace/models
+ */
+export const GITHUB_MODELS_CATALOG = {
+  // OpenAI models
+  'openai/gpt-4o': 'General purpose, multimodal',
+  'openai/gpt-4.1': 'Latest OpenAI, superior coding',
+  'openai/gpt-4.1-mini': 'Balanced performance/cost',
+  'openai/gpt-4.1-nano': 'Fastest, lowest cost',
+  // Meta models
+  'meta/llama-3.3-70b-instruct': 'Open source, high quality',
+  'meta/llama-4-scout-17b-16e-instruct': '10M token context',
+  // Mistral models
+  'mistral-ai/codestral-2501': 'Specialized code generation',
+  // DeepSeek models  
+  'deepseek/deepseek-r1': 'Reasoning tasks',
+} as const;
 
 // Provider configurations with their default models
 interface ProviderConfig {
