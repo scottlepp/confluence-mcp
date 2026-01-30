@@ -202,11 +202,11 @@ Add to your Claude Desktop configuration file:
 
 Confluence supports multiple body formats:
 
-- `storage` - XHTML-based storage format (default for read/write)
-- `atlas_doc_format` - Atlassian Document Format (ADF)
+- `storage` - XHTML-based storage format (default)
+- `atlas_doc_format` - Atlassian Document Format (ADF) - supports Forge app extensions
 - `view` - Rendered HTML (read-only)
 
-When creating or updating content, use the storage format:
+### Storage Format (default)
 
 ```html
 <p>This is a paragraph.</p>
@@ -216,6 +216,79 @@ When creating or updating content, use the storage format:
   <li>List item 2</li>
 </ul>
 ```
+
+### ADF Format
+
+Use `bodyFormat: "atlas_doc_format"` when creating/updating pages to insert Forge app macros (like Mermaid diagrams). The body should be a JSON-stringified ADF document:
+
+```json
+{
+  "version": 1,
+  "type": "doc",
+  "content": [
+    { "type": "paragraph", "content": [{ "type": "text", "text": "Hello world" }] }
+  ]
+}
+```
+
+See [Inserting Forge App Macros](#inserting-forge-app-macros-eg-mermaid-diagrams) for advanced usage.
+
+## Inserting Forge App Macros (e.g., Mermaid Diagrams)
+
+You can programmatically insert Forge app macros like Mermaid diagrams using the ADF (Atlassian Document Format) body format.
+
+### Mermaid Diagram Example
+
+To insert a Mermaid diagram, use `bodyFormat: "atlas_doc_format"` with both a code block and an extension node:
+
+```json
+{
+  "spaceId": "123456",
+  "title": "Page with Mermaid Diagram",
+  "bodyFormat": "atlas_doc_format",
+  "body": "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"codeBlock\",\"attrs\":{\"language\":\"mermaid\"},\"content\":[{\"type\":\"text\",\"text\":\"sequenceDiagram\\n    Alice->>Bob: Hello\\n    Bob-->>Alice: Hi!\"}]},{\"type\":\"extension\",\"attrs\":{\"extensionKey\":\"23392b90-4271-4239-98ca-a3e96c663cbb/63d4d207-ac2f-4273-865c-0240d37f044a/static/mermaid-diagram\",\"extensionType\":\"com.atlassian.ecosystem\",\"parameters\":{\"localId\":\"mermaid-1\"},\"localId\":\"mermaid-1\"}}]}"
+}
+```
+
+### ADF Structure for Mermaid
+
+The ADF document structure (before JSON stringification):
+
+```json
+{
+  "version": 1,
+  "type": "doc",
+  "content": [
+    {
+      "type": "codeBlock",
+      "attrs": { "language": "mermaid" },
+      "content": [{ "type": "text", "text": "sequenceDiagram\n    Alice->>Bob: Hello" }]
+    },
+    {
+      "type": "extension",
+      "attrs": {
+        "extensionKey": "23392b90-4271-4239-98ca-a3e96c663cbb/63d4d207-ac2f-4273-865c-0240d37f044a/static/mermaid-diagram",
+        "extensionType": "com.atlassian.ecosystem",
+        "parameters": { "localId": "mermaid-1" },
+        "localId": "mermaid-1"
+      }
+    }
+  ]
+}
+```
+
+**Key points:**
+- The `extensionKey` is for the **Mermaid diagrams viewer** app by Atlassian Labs (must be installed on your Confluence instance)
+- The `localId` must be in **both** `parameters.localId` AND `attrs.localId`
+- The Mermaid macro auto-detects code blocks by position (1st extension → 1st code block, 2nd → 2nd, etc.)
+- Use `"parameters": { "index": N }` to explicitly select which code block (0-based index)
+
+### Finding Extension Keys for Other Forge Apps
+
+To find the extension key for other Forge apps:
+1. Manually insert the macro on a Confluence page
+2. Fetch the page with `bodyFormat: "atlas_doc_format"`
+3. Look for the `extensionKey` in the extension node
 
 ## CQL Search Examples
 
