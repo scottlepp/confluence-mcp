@@ -73,12 +73,20 @@ REVIEW GUIDELINES:
 - Acknowledge good patterns and improvements
 - Leave inline comments for specific code issues
 
+REVIEW DECISION (IMPORTANT):
+You MUST choose the appropriate review action:
+- APPROVE: Use when the code is good to merge. Minor suggestions (low/info severity) should NOT block approval.
+- REQUEST_CHANGES: Use when there are critical or high severity issues that MUST be fixed before merging.
+- COMMENT: Use ONLY when you're unsure or need more information.
+
+Default to APPROVE if there are no critical/high issues. Be pragmatic - don't block PRs for minor style preferences.
+
 SEVERITY LEVELS:
-- critical: Security vulnerabilities, data loss risks, breaking changes
-- high: Bugs, significant performance issues, logic errors
-- medium: Code quality issues, missing error handling
-- low: Style issues, minor improvements
-- info: Suggestions, nice-to-haves
+- critical: Security vulnerabilities, data loss risks, breaking changes → REQUEST_CHANGES
+- high: Bugs, significant performance issues, logic errors → REQUEST_CHANGES
+- medium: Code quality issues, missing error handling → APPROVE with suggestions
+- low: Style issues, minor improvements → APPROVE with suggestions
+- info: Suggestions, nice-to-haves → APPROVE with suggestions
 
 WHAT TO LOOK FOR:
 - Security vulnerabilities (injection, XSS, auth issues)
