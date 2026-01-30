@@ -19,7 +19,6 @@ import {
 } from "./resources/index.js";
 
 // Create the MCP server using the lower-level Server class for more control
-// Test change: verify GitHub Models integration works with PR review workflow
 const server = new Server(
   {
     name: "confluence-mcp",
