@@ -1,0 +1,126 @@
+name: PR Review Agent
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.github/workflows/**'
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        type: number
+        required: true
+      focus_areas:
+        description: 'Focus areas (comma-separated: security,performance,logic,tests,style)'
+        type: string
+        default: 'security,logic,tests'
+      suggest_tests:
+        description: 'Suggest tests for untested code'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-pr:
+    runs-on: ubuntu-latest
+    environment: confluence-mcp
+    # Review all PRs including forks! Uses API-only mode (no PR code execution)
+    # This is safe because we only checkout main branch and use GitHub API to read PR files
+    if: github.actor != 'github-actions[bot]' && github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Checkout PR code (safe - we only review, never execute)
+        uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Get package files from main for safe dependency installation
+        run: |
+          git fetch origin main
+          git checkout origin/main -- package.json package-lock.json scripts/agents/package.json scripts/agents/package-lock.json
+
+      - name: Install dependencies (from main branch)
+        run: npm ci
+
+      - name: Install agent dependencies (from main branch)
+        run: cd scripts/agents && npm ci
+
+      - name: Restore PR code
+        run: |
+          git checkout HEAD -- .
+
+      - name: Determine PR Number
+        id: pr-number
+        run: |
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            echo "pr_number=${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check PR State
+        id: pr-state
+        run: |
+          PR_STATE=$(gh pr view ${{ steps.pr-number.outputs.pr_number }} --json state --jq .state)
+          echo "state=$PR_STATE" >> $GITHUB_OUTPUT
+          if [ "$PR_STATE" != "OPEN" ]; then
+            echo "PR is $PR_STATE, skipping review"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate PR diff
+        if: steps.pr-state.outputs.state == 'OPEN'
+        id: pr-diff
+        run: |
+          # Generate diff between base and current HEAD
+          git diff origin/${{ github.event.pull_request.base.ref || 'main' }}...HEAD > pr-diff.patch
+
+      - name: Run PR Review Agent
+        if: steps.pr-state.outputs.state == 'OPEN'
+        id: pr-review-agent
+        run: npx tsx scripts/agents/src/agents/pr-review-agent.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.pr_number }}
+          PR_DIFF_FILE: pr-diff.patch
+          FOCUS_AREAS: ${{ inputs.focus_areas || 'security,logic,tests' }}
+          SUGGEST_TESTS: ${{ inputs.suggest_tests || 'true' }}
+          # AI Provider API Keys - At least one required, router will use all available
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## PR Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.pr-state.outputs.state }}" != "OPEN" ]; then
+            echo "PR #${{ steps.pr-number.outputs.pr_number }} is ${{ steps.pr-state.outputs.state }}, review skipped." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "The PR Review Agent has completed analyzing PR #${{ steps.pr-number.outputs.pr_number }}." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "- PR Number: #${{ steps.pr-number.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Focus Areas: ${{ inputs.focus_areas || 'security,logic,tests' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Suggest Tests: ${{ inputs.suggest_tests || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          fi
