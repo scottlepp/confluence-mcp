@@ -76,10 +76,11 @@ REVIEW GUIDELINES:
 REVIEW DECISION (IMPORTANT):
 You MUST choose the appropriate review action:
 - APPROVE: Use when the code is good to merge. Minor suggestions (low/info severity) should NOT block approval.
+  When approving, set enableAutoMerge: true to automatically merge the PR once all checks pass.
 - REQUEST_CHANGES: Use when there are critical or high severity issues that MUST be fixed before merging.
 - COMMENT: Use ONLY when you're unsure or need more information.
 
-Default to APPROVE if there are no critical/high issues. Be pragmatic - don't block PRs for minor style preferences.
+Default to APPROVE (with enableAutoMerge: true) if there are no critical/high issues. Be pragmatic - don't block PRs for minor style preferences.
 
 SEVERITY LEVELS:
 - critical: Security vulnerabilities, data loss risks, breaking changes → REQUEST_CHANGES

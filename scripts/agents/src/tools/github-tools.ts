@@ -168,7 +168,7 @@ export function createGitHubTools(repoOwner: string, repoName: string) {
      * Create a review on a pull request
      */
     createReview: tool({
-      description: 'Submit a review on a pull request with optional inline comments',
+      description: 'Submit a review on a pull request with optional inline comments. If approving, can also enable auto-merge.',
       inputSchema: z.object({
         prNumber: z.number().describe('PR number'),
         body: z.string().describe('Review summary'),
@@ -180,12 +180,14 @@ export function createGitHubTools(repoOwner: string, repoName: string) {
           line: z.number().describe('Line number in the diff to comment on'),
           body: z.string().describe('Comment text'),
         })).optional().describe('Optional inline comments on specific lines of code'),
+        enableAutoMerge: z.boolean().optional().describe('Enable auto-merge after approval (only works with APPROVE event)'),
       }),
-      execute: async ({ prNumber, body, event, comments }: {
+      execute: async ({ prNumber, body, event, comments, enableAutoMerge }: {
         prNumber: number;
         body: string;
         event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
         comments?: Array<{ path: string; line: number; body: string }>;
+        enableAutoMerge?: boolean;
       }) => {
         try {
           const { data } = await octokit.pulls.createReview({
@@ -201,11 +203,48 @@ export function createGitHubTools(repoOwner: string, repoName: string) {
             })),
           });
 
+          let autoMergeEnabled = false;
+          
+          // Enable auto-merge if requested and review is an approval
+          if (enableAutoMerge && event === 'APPROVE') {
+            try {
+              // Get PR details to get the node_id
+              const { data: pr } = await octokit.pulls.get({
+                owner: repoOwner,
+                repo: repoName,
+                pull_number: prNumber,
+              });
+              
+              // Enable auto-merge via GraphQL (REST API doesn't support this)
+              await octokit.graphql(`
+                mutation EnableAutoMerge($pullRequestId: ID!) {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: $pullRequestId,
+                    mergeMethod: SQUASH
+                  }) {
+                    pullRequest {
+                      autoMergeRequest {
+                        enabledAt
+                      }
+                    }
+                  }
+                }
+              `, {
+                pullRequestId: pr.node_id,
+              });
+              autoMergeEnabled = true;
+            } catch (autoMergeError) {
+              // Auto-merge might fail if not enabled in repo settings, but review still succeeded
+              console.warn('Failed to enable auto-merge:', autoMergeError);
+            }
+          }
+
           return {
             success: true,
             reviewId: data.id,
             state: data.state,
             commentsCount: comments?.length || 0,
+            autoMergeEnabled,
           };
         } catch (error) {
           return {
