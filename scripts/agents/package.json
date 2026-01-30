@@ -1,0 +1,39 @@
+{
+  "name": "confluence-mcp-agents",
+  "version": "1.0.0",
+  "description": "AI agents for automated repository maintenance",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "security": "tsx src/agents/security-agent.ts",
+    "bug-fix": "tsx src/agents/bug-fix-agent.ts",
+    "pr-review": "tsx src/agents/pr-review-agent.ts"
+  },
+  "dependencies": {
+    "ai": "^6.0.58",
+    "@ai-sdk/google": "^3.0.15",
+    "@ai-sdk/groq": "^3.0.16",
+    "@ai-sdk/deepseek": "^2.0.12",
+    "@ai-sdk/openai": "^3.0.21",
+    "@ai-sdk/anthropic": "^3.0.28",
+    "@ai-sdk/mistral": "^3.0.13",
+    "@ai-sdk/perplexity": "^3.0.12",
+    "@openrouter/ai-sdk-provider": "^2.1.1",
+    "@octokit/rest": "^22.0.1",
+    "zod": "^4.3.6",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
