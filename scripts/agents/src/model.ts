@@ -1,17 +1,18 @@
 import { LanguageModel } from 'ai';
 import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
-import { openai, createOpenAI } from '@ai-sdk/openai';
+import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { mistral } from '@ai-sdk/mistral';
 import { perplexity } from '@ai-sdk/perplexity';
 import { deepseek } from '@ai-sdk/deepseek';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { getConfig } from './config.js';
 
 // GitHub Models provider - uses OpenAI-compatible API at models.github.ai
 function createGitHubModels(githubToken: string) {
-  return createOpenAI({
+  return createOpenAICompatible({
     baseURL: 'https://models.github.ai/inference',
     apiKey: githubToken,
     name: 'github-models',
