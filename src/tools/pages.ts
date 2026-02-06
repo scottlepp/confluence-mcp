@@ -5,6 +5,8 @@ import {
   ConfluencePageSingle,
   MultiEntityResult,
 } from "../types/confluence.js";
+import { markdownToStorageFormat } from "../utils/markdown-to-storage.js";
+import { markdownToAdf } from "../utils/markdown-to-adf.js";
 
 // Tool definitions for pages
 
@@ -269,6 +271,162 @@ export const pageTools = [
       required: ["labelId"],
     },
   },
+  {
+    name: "confluence_create_page_from_markdown",
+    description:
+      "Create a new page from Markdown content. Automatically converts Markdown to Confluence storage format. " +
+      "Supports headings, bold/italic/strikethrough, links, images, ordered/unordered lists, tables, blockquotes, " +
+      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        spaceId: {
+          type: "string",
+          description: "The ID of the space to create the page in",
+        },
+        title: {
+          type: "string",
+          description: "The title of the page",
+        },
+        markdown: {
+          type: "string",
+          description:
+            "The page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+        },
+        parentId: {
+          type: "string",
+          description: "The ID of the parent page (optional)",
+        },
+        status: {
+          type: "string",
+          enum: ["current", "draft"],
+          description: "Page status (default: current)",
+        },
+      },
+      required: ["spaceId", "title", "markdown"],
+    },
+  },
+  {
+    name: "confluence_update_page_from_markdown",
+    description:
+      "Update an existing page from Markdown content. Automatically converts Markdown to Confluence storage format. " +
+      "Supports headings, bold/italic/strikethrough, links, images, ordered/unordered lists, tables, blockquotes, " +
+      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        pageId: {
+          type: "string",
+          description: "The ID of the page to update",
+        },
+        title: {
+          type: "string",
+          description: "The new title of the page",
+        },
+        markdown: {
+          type: "string",
+          description:
+            "The new page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+        },
+        version: {
+          type: "number",
+          description:
+            "The current version number (required for optimistic locking)",
+        },
+        status: {
+          type: "string",
+          enum: ["current", "draft"],
+          description: "Page status",
+        },
+        versionMessage: {
+          type: "string",
+          description: "Optional message describing the changes",
+        },
+      },
+      required: ["pageId", "title", "markdown", "version"],
+    },
+  },
+  {
+    name: "confluence_create_page_from_markdown_adf",
+    description:
+      "Create a new page from Markdown content using Atlassian Document Format (ADF). Automatically converts Markdown to ADF JSON. " +
+      "Preferred for Mermaid diagrams (rendered natively by Confluence Mermaid apps via ```mermaid code blocks). " +
+      "Also supports headings, bold/italic/strikethrough, links, images (as external media), ordered/unordered lists, tables, blockquotes, " +
+      "code blocks with syntax highlighting, inline code, and horizontal rules.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        spaceId: {
+          type: "string",
+          description: "The ID of the space to create the page in",
+        },
+        title: {
+          type: "string",
+          description: "The title of the page",
+        },
+        markdown: {
+          type: "string",
+          description:
+            "The page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+        },
+        parentId: {
+          type: "string",
+          description: "The ID of the parent page (optional)",
+        },
+        status: {
+          type: "string",
+          enum: ["current", "draft"],
+          description: "Page status (default: current)",
+        },
+      },
+      required: ["spaceId", "title", "markdown"],
+    },
+  },
+  {
+    name: "confluence_update_page_from_markdown_adf",
+    description:
+      "Update an existing page from Markdown content using Atlassian Document Format (ADF). Automatically converts Markdown to ADF JSON. " +
+      "Preferred for Mermaid diagrams (rendered natively by Confluence Mermaid apps via ```mermaid code blocks). " +
+      "Also supports headings, bold/italic/strikethrough, links, images (as external media), ordered/unordered lists, tables, blockquotes, " +
+      "code blocks with syntax highlighting, inline code, and horizontal rules.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        pageId: {
+          type: "string",
+          description: "The ID of the page to update",
+        },
+        title: {
+          type: "string",
+          description: "The new title of the page",
+        },
+        markdown: {
+          type: "string",
+          description:
+            "The new page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+        },
+        version: {
+          type: "number",
+          description:
+            "The current version number (required for optimistic locking)",
+        },
+        status: {
+          type: "string",
+          enum: ["current", "draft"],
+          description: "Page status",
+        },
+        versionMessage: {
+          type: "string",
+          description: "Optional message describing the changes",
+        },
+      },
+      required: ["pageId", "title", "markdown", "version"],
+    },
+  },
 ];
 
 // Input schemas for validation
@@ -332,6 +490,40 @@ const GetPagesForLabelSchema = z.object({
   bodyFormat: z.enum(["storage", "atlas_doc_format", "view"]).optional(),
   cursor: z.string().optional(),
   limit: z.number().optional(),
+});
+
+const CreatePageFromMarkdownSchema = z.object({
+  spaceId: z.string(),
+  title: z.string(),
+  markdown: z.string(),
+  parentId: z.string().optional(),
+  status: z.enum(["current", "draft"]).optional(),
+});
+
+const UpdatePageFromMarkdownSchema = z.object({
+  pageId: z.string(),
+  title: z.string(),
+  markdown: z.string(),
+  version: z.number(),
+  status: z.enum(["current", "draft"]).optional(),
+  versionMessage: z.string().optional(),
+});
+
+const CreatePageFromMarkdownAdfSchema = z.object({
+  spaceId: z.string(),
+  title: z.string(),
+  markdown: z.string(),
+  parentId: z.string().optional(),
+  status: z.enum(["current", "draft"]).optional(),
+});
+
+const UpdatePageFromMarkdownAdfSchema = z.object({
+  pageId: z.string(),
+  title: z.string(),
+  markdown: z.string(),
+  version: z.number(),
+  status: z.enum(["current", "draft"]).optional(),
+  versionMessage: z.string().optional(),
 });
 
 // Tool handlers
@@ -461,6 +653,86 @@ export async function handlePageTool(
         `/labels/${input.labelId}/pages`,
         queryParams
       );
+    }
+
+    case "confluence_create_page_from_markdown": {
+      const input = CreatePageFromMarkdownSchema.parse(args);
+      const storageBody = markdownToStorageFormat(input.markdown);
+
+      const body: Record<string, unknown> = {
+        spaceId: input.spaceId,
+        title: input.title,
+        body: {
+          representation: "storage",
+          value: storageBody,
+        },
+      };
+
+      if (input.parentId) body.parentId = input.parentId;
+      if (input.status) body.status = input.status;
+
+      return client.post<ConfluencePageSingle>("/pages", body);
+    }
+
+    case "confluence_update_page_from_markdown": {
+      const input = UpdatePageFromMarkdownSchema.parse(args);
+      const storageBody = markdownToStorageFormat(input.markdown);
+
+      const body: Record<string, unknown> = {
+        id: input.pageId,
+        status: input.status || "current",
+        title: input.title,
+        body: {
+          representation: "storage",
+          value: storageBody,
+        },
+        version: {
+          number: input.version + 1,
+          message: input.versionMessage,
+        },
+      };
+
+      return client.put<ConfluencePageSingle>(`/pages/${input.pageId}`, body);
+    }
+
+    case "confluence_create_page_from_markdown_adf": {
+      const input = CreatePageFromMarkdownAdfSchema.parse(args);
+      const adfDoc = markdownToAdf(input.markdown);
+
+      const body: Record<string, unknown> = {
+        spaceId: input.spaceId,
+        title: input.title,
+        body: {
+          representation: "atlas_doc_format",
+          value: JSON.stringify(adfDoc),
+        },
+      };
+
+      if (input.parentId) body.parentId = input.parentId;
+      if (input.status) body.status = input.status;
+
+      return client.post<ConfluencePageSingle>("/pages", body);
+    }
+
+    case "confluence_update_page_from_markdown_adf": {
+      const input = UpdatePageFromMarkdownAdfSchema.parse(args);
+      const adfDoc = markdownToAdf(input.markdown);
+
+      const body: Record<string, unknown> = {
+        id: input.pageId,
+        status: input.status || "current",
+        title: input.title,
+        body: {
+          representation: "atlas_doc_format",
+          value: JSON.stringify(adfDoc),
+        },
+        version: {
+          number: input.version + 1,
+          message: input.versionMessage,
+        },
+      };
+
+      return client.put<ConfluencePageSingle>(`/pages/${input.pageId}`, body);
     }
 
     default:
