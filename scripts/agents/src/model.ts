@@ -56,10 +56,10 @@ function getProviderConfigs(): ProviderConfig[] {
     // Note: Claude models are NOT available - use OpenAI, Meta, Mistral, xAI, or DeepSeek models
     {
       name: 'github-models',
-      isAvailable: () => !!config.useGitHubModels && !!config.githubToken,
+      isAvailable: () => !!config.useGitHubModels && !!config.githubModelsToken,
       createModel: () => {
-        if (!config.useGitHubModels || !config.githubToken) return null;
-        const githubModels = createGitHubModels(config.githubToken);
+        if (!config.useGitHubModels || !config.githubModelsToken) return null;
+        const githubModels = createGitHubModels(config.githubModelsToken);
         // Default to GPT-4o, can be overridden via GITHUB_MODELS_MODEL env var
         return githubModels(config.githubModelsModel || 'openai/gpt-4o');
       },

@@ -41,6 +41,86 @@ function buildMermaidExtensionNode(): AdfNode {
   };
 }
 
+// ─── Markdown File Link Helpers ──────────────────────────────────────────────
+
+/**
+ * Check if a link href points to a Markdown file (relative .md link).
+ */
+function isMarkdownFileLink(href: string): boolean {
+  try {
+    const url = new URL(href, "http://dummy");
+    if (url.host !== "dummy") return false;
+  } catch {
+    // Not a valid URL — treat as relative
+  }
+  return /\.md(?:#.*)?$/.test(href);
+}
+
+/**
+ * Extract the page title from a .md link href.
+ * Strips path, fragment, and .md extension.
+ * E.g. "docs/sample-short.md#section" → "sample-short"
+ */
+function mdHrefToPageTitle(href: string): string {
+  const withoutFragment = href.split("#")[0];
+  return withoutFragment.split("/").pop()!.replace(/\.md$/, "");
+}
+
+/**
+ * Collect all unique page titles referenced by .md links in an ADF document.
+ */
+export function collectMdLinkTitles(doc: AdfDocument): string[] {
+  const titles = new Set<string>();
+  function walk(nodes: AdfNode[]) {
+    for (const node of nodes) {
+      if (node.marks) {
+        for (const mark of node.marks) {
+          if (
+            mark.type === "link" &&
+            typeof mark.attrs?.href === "string" &&
+            isMarkdownFileLink(mark.attrs.href as string)
+          ) {
+            titles.add(mdHrefToPageTitle(mark.attrs.href as string));
+          }
+        }
+      }
+      if (node.content) walk(node.content);
+    }
+  }
+  walk(doc.content);
+  return [...titles];
+}
+
+/**
+ * Rewrite .md link hrefs in an ADF document using a title → URL map.
+ * Links whose title is not found in the map are left unchanged.
+ */
+export function rewriteMdLinks(
+  doc: AdfDocument,
+  titleToUrl: Record<string, string>
+): void {
+  function walk(nodes: AdfNode[]) {
+    for (const node of nodes) {
+      if (node.marks) {
+        for (const mark of node.marks) {
+          if (
+            mark.type === "link" &&
+            typeof mark.attrs?.href === "string" &&
+            isMarkdownFileLink(mark.attrs.href as string)
+          ) {
+            const title = mdHrefToPageTitle(mark.attrs.href as string);
+            if (titleToUrl[title]) {
+              mark.attrs!.href = titleToUrl[title];
+            }
+          }
+        }
+      }
+      if (node.content) walk(node.content);
+    }
+  }
+  walk(doc.content);
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
