@@ -44,6 +44,11 @@ const longMarkdown = readFileSync(
   "utf-8"
 );
 
+const linksMarkdown = readFileSync(
+  resolve(__dirname, "../data/sample-links.md"),
+  "utf-8"
+);
+
 const simpleMermaidMarkdown = `# Mermaid Integration Test
 
 This page tests Mermaid diagram rendering via the MCP tools.
@@ -662,6 +667,187 @@ graph LR
         expect(updateResult.version.number).toBe(2);
         console.log(
           `✔ ADF page created & updated: https://taktak.atlassian.net/wiki/spaces/Scotts/pages/${adfPageId}`
+        );
+      });
+    });
+
+    // ── Links Document ──────────────────────────────────────────────────
+
+    describe("Links document — visual verification", () => {
+      // Use timestamped page titles so we don't collide with previous runs
+      const shortTitle = `sample-short-${TIMESTAMP}`;
+      const longTitle = `sample-long-${TIMESTAMP}`;
+
+      // Build a links markdown that references the timestamped filenames
+      const linksMarkdownWithTimestamp = linksMarkdown
+        .replace(/sample-short\.md/g, `${shortTitle}.md`)
+        .replace(/sample-long\.md/g, `${longTitle}.md`);
+
+      it("should create target pages then links page via storage format", { timeout: 60_000 }, async () => {
+        // First create the target pages that the .md links reference.
+        // Page titles match the filenames without .md extension.
+        const shortPage = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: shortTitle,
+            markdown: shortMarkdown,
+          }
+        )) as PageResult;
+        expect(shortPage.id).toBeDefined();
+        createdPageIds.push(Number(shortPage.id));
+
+        const longPage = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: longTitle,
+            markdown: longMarkdown,
+          }
+        )) as PageResult;
+        expect(longPage.id).toBeDefined();
+        createdPageIds.push(Number(longPage.id));
+
+        // Now create the page that contains .md links to them
+        const result = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] Links Doc Storage - ${TIMESTAMP}`,
+            markdown: linksMarkdownWithTimestamp,
+          }
+        )) as PageResult;
+
+        expect(result.id).toBeDefined();
+        createdPageIds.push(Number(result.id));
+
+        // Read back and verify links are present in storage format
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          {
+            pageId: Number(result.id),
+            bodyFormat: "storage",
+          }
+        )) as PageResult;
+
+        const body = page.body?.storage?.value ?? "";
+
+        // Inline links
+        expect(body).toContain('href="https://www.atlassian.com"');
+        expect(body).toContain("Atlassian");
+
+        // Multiple links in same paragraph
+        expect(body).toContain('href="https://www.google.com"');
+        expect(body).toContain('href="https://github.com"');
+        expect(body).toContain('href="https://stackoverflow.com"');
+
+        // Links in tables
+        expect(body).toContain('href="https://example.com/docs"');
+        expect(body).toContain("Documentation");
+
+        // Links in lists
+        expect(body).toContain('href="https://example.com/intro"');
+
+        // Links in blockquotes
+        expect(body).toContain('href="https://example.com/guide"');
+
+        // Internal .md links should be converted to Confluence ac:link macros
+        // The filename (without .md) is used as the target page title
+        expect(body).toContain(`ri:content-title="${shortTitle}"`);
+        expect(body).toContain(`ri:content-title="${longTitle}"`);
+        expect(body).toContain("<ac:link>");
+        expect(body).toContain("Season Highlights");
+        expect(body).toContain("Springfield Complete Guide");
+
+        console.log(
+          `✔ Storage links page: https://taktak.atlassian.net/wiki/spaces/Scotts/pages/${result.id}`
+        );
+      });
+
+      it("should create links page via ADF with resolved page URLs", { timeout: 30_000 }, async () => {
+        // Target pages were already created by the storage test above
+        const result = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown_adf",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] Links Doc ADF - ${TIMESTAMP}`,
+            markdown: linksMarkdownWithTimestamp,
+          }
+        )) as PageResult;
+
+        expect(result.id).toBeDefined();
+        createdPageIds.push(Number(result.id));
+
+        // Read back and verify links are present in ADF format
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          {
+            pageId: Number(result.id),
+            bodyFormat: "atlas_doc_format",
+          }
+        )) as PageResult;
+
+        const adfValue = page.body?.atlas_doc_format?.value ?? "";
+        const adfDoc = JSON.parse(adfValue);
+
+        expect(adfDoc.type).toBe("doc");
+
+        // Collect all text nodes with link marks across the entire document
+        const linkTexts: string[] = [];
+        const linkHrefs: string[] = [];
+        function walkNodes(nodes: Array<{ type: string; content?: Array<unknown>; marks?: Array<{ type: string; attrs?: { href?: string } }>; text?: string }>) {
+          for (const node of nodes) {
+            if (node.marks) {
+              const linkMark = node.marks.find((m) => m.type === "link");
+              if (linkMark) {
+                if (node.text) linkTexts.push(node.text);
+                if (linkMark.attrs?.href) linkHrefs.push(linkMark.attrs.href);
+              }
+            }
+            if (node.content) {
+              walkNodes(node.content as Array<{ type: string; content?: Array<unknown>; marks?: Array<{ type: string; attrs?: { href?: string } }>; text?: string }>);
+            }
+          }
+        }
+        walkNodes(adfDoc.content);
+
+        // Inline links
+        expect(linkTexts).toContain("Atlassian");
+        expect(linkHrefs).toContain("https://www.atlassian.com");
+
+        // Multiple links
+        expect(linkHrefs).toContain("https://www.google.com");
+        expect(linkHrefs).toContain("https://github.com");
+        expect(linkHrefs).toContain("https://stackoverflow.com");
+
+        // Links in tables
+        expect(linkTexts).toContain("Documentation");
+        expect(linkHrefs).toContain("https://example.com/docs");
+
+        // Links in lists
+        expect(linkHrefs).toContain("https://example.com/intro");
+
+        // Links in blockquotes
+        expect(linkHrefs).toContain("https://example.com/guide");
+
+        // Internal .md links should be resolved to Confluence page URLs
+        expect(linkTexts).toContain("Season Highlights");
+        expect(linkTexts).toContain("Springfield Complete Guide");
+        // The .md hrefs should have been replaced with webui paths
+        expect(linkHrefs).not.toContain(`${shortTitle}.md`);
+        expect(linkHrefs).not.toContain(`${longTitle}.md`);
+        // Should have webui-style links pointing to the resolved pages
+        const internalLinks = linkHrefs.filter((h) => h.includes("/wiki/"));
+        expect(internalLinks.length).toBeGreaterThanOrEqual(2);
+
+        console.log(
+          `✔ ADF links page: https://taktak.atlassian.net/wiki/spaces/Scotts/pages/${result.id}`
         );
       });
     });

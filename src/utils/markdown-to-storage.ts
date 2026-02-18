@@ -13,6 +13,30 @@ function escapeXml(text: string): string {
 }
 
 /**
+ * Check if a link href points to a Markdown file (relative .md link).
+ */
+function isMarkdownFileLink(href: string): boolean {
+  try {
+    const url = new URL(href, "http://dummy");
+    // If the href parses as an absolute URL with a real host, it's external
+    if (url.host !== "dummy") return false;
+  } catch {
+    // Not a valid URL — treat as relative
+  }
+  return /\.md(?:#.*)?$/.test(href);
+}
+
+/**
+ * Extract the page title from a .md link href.
+ * Strips path, fragment, and .md extension.
+ * E.g. "docs/sample-short.md#section" → "sample-short"
+ */
+function mdHrefToPageTitle(href: string): string {
+  const withoutFragment = href.split("#")[0];
+  return withoutFragment.split("/").pop()!.replace(/\.md$/, "");
+}
+
+/**
  * Escape content for use within CDATA sections.
  * The only problematic sequence in CDATA is "]]>" which closes the section.
  */
@@ -67,6 +91,26 @@ export function markdownToStorageFormat(markdown: string): string {
           `<ri:url ri:value="${escapeXml(href)}" />` +
           `</ac:image>`
         );
+      },
+
+      // Links to .md files → Confluence ac:link macro with ri:page.
+      // The filename (without .md) is used as the target page title.
+      // E.g. [Season Highlights](sample-short.md) links to page titled "sample-short".
+      link({ href, title, tokens }: Tokens.Link): string | false {
+        if (href && isMarkdownFileLink(href)) {
+          const pageTitle = mdHrefToPageTitle(href);
+          const linkBody = this.parser.parseInline(tokens);
+          const titleAttr = title
+            ? ` ac:title="${escapeXml(title)}"`
+            : "";
+          return (
+            `<ac:link${titleAttr}>` +
+            `<ri:page ri:content-title="${escapeXml(pageTitle)}" />` +
+            `<ac:link-body>${linkBody}</ac:link-body>` +
+            `</ac:link>`
+          );
+        }
+        return false; // fall back to default renderer for external links
       },
 
       // Ensure XHTML-compatible self-closing tag for horizontal rules

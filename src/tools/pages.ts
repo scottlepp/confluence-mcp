@@ -6,7 +6,12 @@ import {
   MultiEntityResult,
 } from "../types/confluence.js";
 import { markdownToStorageFormat } from "../utils/markdown-to-storage.js";
-import { markdownToAdf } from "../utils/markdown-to-adf.js";
+import {
+  markdownToAdf,
+  collectMdLinkTitles,
+  rewriteMdLinks,
+  type AdfDocument,
+} from "../utils/markdown-to-adf.js";
 
 // Tool definitions for pages
 
@@ -526,6 +531,41 @@ const UpdatePageFromMarkdownAdfSchema = z.object({
   versionMessage: z.string().optional(),
 });
 
+/**
+ * Resolve .md link titles in an ADF document to Confluence page URLs.
+ * Looks up each referenced page title in the given space and rewrites
+ * the link hrefs to the actual Confluence webui URLs.
+ */
+async function resolveMdLinksInAdf(
+  client: ConfluenceClient,
+  adfDoc: AdfDocument,
+  spaceId: string
+): Promise<void> {
+  const titles = collectMdLinkTitles(adfDoc);
+  if (titles.length === 0) return;
+
+  const titleToUrl: Record<string, string> = {};
+  for (const title of titles) {
+    try {
+      const result = await client.get<MultiEntityResult<ConfluencePage>>(
+        `/spaces/${spaceId}/pages`,
+        { title, limit: 1 }
+      );
+      if (result.results.length > 0) {
+        const page = result.results[0];
+        const webui = page._links?.webui;
+        if (webui) {
+          titleToUrl[title] = webui;
+        }
+      }
+    } catch {
+      // If lookup fails, leave the link unchanged
+    }
+  }
+
+  rewriteMdLinks(adfDoc, titleToUrl);
+}
+
 // Tool handlers
 export async function handlePageTool(
   client: ConfluenceClient,
@@ -698,6 +738,7 @@ export async function handlePageTool(
     case "confluence_create_page_from_markdown_adf": {
       const input = CreatePageFromMarkdownAdfSchema.parse(args);
       const adfDoc = markdownToAdf(input.markdown);
+      await resolveMdLinksInAdf(client, adfDoc, input.spaceId);
 
       const body: Record<string, unknown> = {
         spaceId: input.spaceId,
@@ -717,6 +758,15 @@ export async function handlePageTool(
     case "confluence_update_page_from_markdown_adf": {
       const input = UpdatePageFromMarkdownAdfSchema.parse(args);
       const adfDoc = markdownToAdf(input.markdown);
+
+      // Resolve .md links — need spaceId from the existing page
+      const titles = collectMdLinkTitles(adfDoc);
+      if (titles.length > 0) {
+        const existing = await client.get<ConfluencePageSingle>(
+          `/pages/${input.pageId}`
+        );
+        await resolveMdLinksInAdf(client, adfDoc, existing.spaceId);
+      }
 
       const body: Record<string, unknown> = {
         id: input.pageId,
