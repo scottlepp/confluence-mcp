@@ -22,9 +22,10 @@ export interface AgentConfig {
   deepseekApiKey?: string;
   openrouterApiKey?: string;
 
-  // GitHub Models (uses GITHUB_TOKEN for authentication)
+  // GitHub Models (uses GITHUB_MODELS_TOKEN or GITHUB_TOKEN for authentication)
   useGitHubModels?: boolean;
   githubModelsModel?: string;
+  githubModelsToken?: string;
 
   // GitHub
   githubToken: string;
@@ -50,10 +51,11 @@ export function getConfig(): AgentConfig {
   const openrouterApiKey = process.env.OPENROUTER_API_KEY;
   const githubToken = process.env.GITHUB_TOKEN;
 
-  // GitHub Models: enabled by default, uses GITHUB_TOKEN for auth (set USE_GITHUB_MODELS=false to disable)
-  // Note: Claude models are NOT available on GitHub Models - use OpenAI, Meta, Mistral, or DeepSeek models
+  // GitHub Models: enabled by default, uses GITHUB_MODELS_TOKEN or GITHUB_TOKEN for auth
+  // GITHUB_MODELS_TOKEN takes priority (needed when GITHUB_TOKEN is a PAT without Models access)
   const useGitHubModels = process.env.USE_GITHUB_MODELS !== 'false';
   const githubModelsModel = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4o';
+  const githubModelsToken = process.env.GITHUB_MODELS_TOKEN || githubToken;
 
   // Require at least one AI provider (GitHub Models enabled by default, or an API key)
   if (!useGitHubModels && !googleApiKey && !groqApiKey && !openaiApiKey && !anthropicApiKey && !mistralApiKey && !perplexityApiKey && !deepseekApiKey && !openrouterApiKey) {
@@ -91,6 +93,7 @@ export function getConfig(): AgentConfig {
     openrouterApiKey,
     useGitHubModels,
     githubModelsModel,
+    githubModelsToken,
     githubToken,
     repoOwner,
     repoName,

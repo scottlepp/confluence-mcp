@@ -155,7 +155,7 @@ export abstract class BaseAgent<TInput, TOutput> {
         lastError = error as Error;
         const errorMessage = error instanceof Error ? error.message : String(error);
 
-        // Check if it's an API limit/rate limit/balance error that should trigger fallback
+        // Check if it's a retryable API error that should trigger provider fallback
         const isRateLimitError =
           errorMessage.includes('rate limit') ||
           errorMessage.includes('quota') ||
@@ -166,8 +166,16 @@ export abstract class BaseAgent<TInput, TOutput> {
           errorMessage.includes('Insufficient Balance') ||
           errorMessage.includes('insufficient_quota');
 
-        if (isRateLimitError && router.hasMoreProviders() && attempt < maxRetries - 1) {
-          this.log('warn', `API limit hit with ${router.getCurrentProviderName()}, switching to next provider`, { error: errorMessage });
+        const isAccessError =
+          errorMessage.includes('403') ||
+          errorMessage.includes('no_access') ||
+          errorMessage.includes('No access to model');
+
+        const shouldFallback = isRateLimitError || isAccessError;
+
+        if (shouldFallback && router.hasMoreProviders() && attempt < maxRetries - 1) {
+          const reason = isAccessError ? 'Access denied' : 'API limit hit';
+          this.log('warn', `${reason} with ${router.getCurrentProviderName()}, switching to next provider`, { error: errorMessage });
           this.model = router.switchToNextProvider();
           continue;
         }
