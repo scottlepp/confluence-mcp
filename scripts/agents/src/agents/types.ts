@@ -73,6 +73,8 @@ export interface PRReviewAgentInput {
   suggestTests?: boolean;
   focusAreas?: string[];
   diff?: string;
+  /** When true, review each file separately to stay within small token limits */
+  chunkedReview?: boolean;
 }
 
 export interface PRReviewAgentOutput {

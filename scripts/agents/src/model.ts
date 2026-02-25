@@ -61,7 +61,7 @@ function getProviderConfigs(): ProviderConfig[] {
         if (!config.useGitHubModels || !config.githubModelsToken) return null;
         const githubModels = createGitHubModels(config.githubModelsToken);
         // Default to GPT-4o, can be overridden via GITHUB_MODELS_MODEL env var
-        return githubModels(config.githubModelsModel || 'openai/gpt-4o');
+        return githubModels(config.githubModelsModel || 'openai/gpt-4.1');
       },
     },
     {

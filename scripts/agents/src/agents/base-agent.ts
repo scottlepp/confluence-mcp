@@ -164,17 +164,47 @@ export abstract class BaseAgent<TInput, TOutput> {
           errorMessage.includes('too many requests') ||
           errorMessage.includes('resource exhausted') ||
           errorMessage.includes('Insufficient Balance') ||
-          errorMessage.includes('insufficient_quota');
+          errorMessage.includes('insufficient_quota') ||
+          errorMessage.includes('too large') ||
+          errorMessage.includes('Max size') ||
+          errorMessage.includes('context_length_exceeded') ||
+          errorMessage.includes('maximum context length');
 
         const isAccessError =
           errorMessage.includes('403') ||
+          errorMessage.includes('401') ||
           errorMessage.includes('no_access') ||
-          errorMessage.includes('No access to model');
+          errorMessage.includes('No access to model') ||
+          errorMessage.includes('unauthorized') ||
+          errorMessage.includes('Unauthorized');
 
-        const shouldFallback = isRateLimitError || isAccessError;
+        const isServerError =
+          errorMessage.includes('500') ||
+          errorMessage.includes('502') ||
+          errorMessage.includes('503') ||
+          errorMessage.includes('504') ||
+          errorMessage.includes('Internal Server Error') ||
+          errorMessage.includes('Bad Gateway') ||
+          errorMessage.includes('Service Unavailable');
+
+        const isModelError =
+          errorMessage.includes('404') ||
+          errorMessage.includes('model not found') ||
+          errorMessage.includes('Model not found') ||
+          errorMessage.includes('does not exist') ||
+          errorMessage.includes('not available');
+
+        // Check if error is from the AI SDK API call layer (always worth retrying with another provider)
+        const isAPICallError = (error as { name?: string }).name === 'AI_APICallError';
+
+        const shouldFallback = isRateLimitError || isAccessError || isServerError || isModelError || isAPICallError;
 
         if (shouldFallback && router.hasMoreProviders() && attempt < maxRetries - 1) {
-          const reason = isAccessError ? 'Access denied' : 'API limit hit';
+          const reason = isAccessError ? 'Access denied'
+            : isRateLimitError ? 'API limit hit'
+            : isServerError ? 'Server error'
+            : isModelError ? 'Model not available'
+            : 'API call failed';
           this.log('warn', `${reason} with ${router.getCurrentProviderName()}, switching to next provider`, { error: errorMessage });
           this.model = router.switchToNextProvider();
           continue;
