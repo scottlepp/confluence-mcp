@@ -671,6 +671,180 @@ graph LR
       });
     });
 
+    // ── File Path (markdownFilePath) ─────────────────────────────────────
+
+    describe("markdownFilePath — create and update from file", () => {
+      const shortFilePath = resolve(__dirname, "../data/sample-short.md");
+      const longFilePath = resolve(__dirname, "../data/sample-long.md");
+
+      it("should create a page from markdownFilePath (storage)", { timeout: 30_000 }, async () => {
+        const result = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] FilePath Create Storage - ${TIMESTAMP}`,
+            markdownFilePath: shortFilePath,
+          }
+        )) as PageResult;
+
+        expect(result.id).toBeDefined();
+        expect(result.title).toBe(`[IT] FilePath Create Storage - ${TIMESTAMP}`);
+        expect(result.status).toBe("current");
+        createdPageIds.push(Number(result.id));
+
+        // Read back and verify content matches what's in the file
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          { pageId: Number(result.id), bodyFormat: "storage" }
+        )) as PageResult;
+
+        const body = page.body?.storage?.value ?? "";
+        expect(body).toContain("<h1>");
+        expect(body).toContain("<h2>");
+      });
+
+      it("should create a page from markdownFilePath (ADF)", { timeout: 30_000 }, async () => {
+        const result = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown_adf",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] FilePath Create ADF - ${TIMESTAMP}`,
+            markdownFilePath: shortFilePath,
+          }
+        )) as PageResult;
+
+        expect(result.id).toBeDefined();
+        expect(result.title).toBe(`[IT] FilePath Create ADF - ${TIMESTAMP}`);
+        createdPageIds.push(Number(result.id));
+
+        // Read back and verify ADF structure
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          { pageId: Number(result.id), bodyFormat: "atlas_doc_format" }
+        )) as PageResult;
+
+        const adfDoc = JSON.parse(page.body?.atlas_doc_format?.value ?? "{}");
+        expect(adfDoc.type).toBe("doc");
+        const headings = adfDoc.content.filter((n: { type: string }) => n.type === "heading");
+        expect(headings.length).toBeGreaterThan(0);
+      });
+
+      it("should create then update a page from markdownFilePath (storage)", { timeout: 60_000 }, async () => {
+        // Create with short file
+        const createResult = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] FilePath Update Storage - ${TIMESTAMP}`,
+            markdownFilePath: shortFilePath,
+          }
+        )) as PageResult;
+
+        expect(createResult.id).toBeDefined();
+        createdPageIds.push(Number(createResult.id));
+
+        // Update with long file
+        const updateResult = (await handlePageTool(
+          client,
+          "confluence_update_page_from_markdown",
+          {
+            pageId: createResult.id,
+            title: `[IT] FilePath Update Storage - ${TIMESTAMP}`,
+            markdownFilePath: longFilePath,
+            version: 1,
+            versionMessage: "Updated from file path",
+          }
+        )) as PageResult;
+
+        expect(updateResult.version.number).toBe(2);
+
+        // Verify the updated content is the long doc
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          { pageId: Number(createResult.id), bodyFormat: "storage" }
+        )) as PageResult;
+
+        const body = page.body?.storage?.value ?? "";
+        expect(body).toContain("<h1>");
+        expect(body.length).toBeGreaterThan(1000); // Long doc should be substantial
+      });
+
+      it("should create then update a page from markdownFilePath (ADF)", { timeout: 60_000 }, async () => {
+        // Create with short file
+        const createResult = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown_adf",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] FilePath Update ADF - ${TIMESTAMP}`,
+            markdownFilePath: shortFilePath,
+          }
+        )) as PageResult;
+
+        expect(createResult.id).toBeDefined();
+        createdPageIds.push(Number(createResult.id));
+
+        // Update with long file
+        const updateResult = (await handlePageTool(
+          client,
+          "confluence_update_page_from_markdown_adf",
+          {
+            pageId: createResult.id,
+            title: `[IT] FilePath Update ADF - ${TIMESTAMP}`,
+            markdownFilePath: longFilePath,
+            version: 1,
+            versionMessage: "Updated from file path (ADF)",
+          }
+        )) as PageResult;
+
+        expect(updateResult.version.number).toBe(2);
+
+        // Verify the updated content is the long doc
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          { pageId: Number(createResult.id), bodyFormat: "atlas_doc_format" }
+        )) as PageResult;
+
+        const adfDoc = JSON.parse(page.body?.atlas_doc_format?.value ?? "{}");
+        expect(adfDoc.type).toBe("doc");
+        expect(adfDoc.content.length).toBeGreaterThan(10); // Long doc should have many nodes
+      });
+
+      it("should prefer markdownFilePath over markdown when both are provided", { timeout: 30_000 }, async () => {
+        const result = (await handlePageTool(
+          client,
+          "confluence_create_page_from_markdown",
+          {
+            spaceId: SPACE_ID,
+            title: `[IT] FilePath Precedence - ${TIMESTAMP}`,
+            markdown: "# This should be ignored",
+            markdownFilePath: shortFilePath,
+          }
+        )) as PageResult;
+
+        expect(result.id).toBeDefined();
+        createdPageIds.push(Number(result.id));
+
+        const page = (await handlePageTool(
+          client,
+          "confluence_get_page",
+          { pageId: Number(result.id), bodyFormat: "storage" }
+        )) as PageResult;
+
+        const body = page.body?.storage?.value ?? "";
+        // Should contain content from the file, not the inline string
+        expect(body).not.toContain("This should be ignored");
+        expect(body).toContain("<h2>"); // File has h2 headings
+      });
+    });
+
     // ── Links Document ──────────────────────────────────────────────────
 
     describe("Links document — visual verification", () => {
