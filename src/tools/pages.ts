@@ -1,3 +1,4 @@
+import { readFile } from "fs/promises";
 import { z } from "zod";
 import { ConfluenceClient } from "../auth/confluence-client.js";
 import {
@@ -12,6 +13,26 @@ import {
   rewriteMdLinks,
   type AdfDocument,
 } from "../utils/markdown-to-adf.js";
+
+/**
+ * Resolve markdown content from either an inline string or a file path.
+ * If both are provided, markdownFilePath takes precedence.
+ * Throws if neither is provided.
+ */
+async function resolveMarkdown(
+  markdown: string | undefined,
+  markdownFilePath: string | undefined
+): Promise<string> {
+  if (markdownFilePath) {
+    return readFile(markdownFilePath, "utf-8");
+  }
+  if (markdown) {
+    return markdown;
+  }
+  throw new Error(
+    "Either 'markdown' or 'markdownFilePath' must be provided."
+  );
+}
 
 // Tool definitions for pages
 
@@ -281,7 +302,8 @@ export const pageTools = [
     description:
       "Create a new page from Markdown content. Automatically converts Markdown to Confluence storage format. " +
       "Supports headings, bold/italic/strikethrough, links, images, ordered/unordered lists, tables, blockquotes, " +
-      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules.",
+      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules. " +
+      "For large documents, use markdownFilePath instead of markdown to avoid tool call size limits.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -297,7 +319,14 @@ export const pageTools = [
           type: "string",
           description:
             "The page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
-            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks. " +
+            "Either this or markdownFilePath must be provided.",
+        },
+        markdownFilePath: {
+          type: "string",
+          description:
+            "Absolute path to a Markdown file on disk. Use this instead of the markdown parameter for large documents " +
+            "that may exceed tool call size limits. Takes precedence over markdown if both are provided.",
         },
         parentId: {
           type: "string",
@@ -309,7 +338,7 @@ export const pageTools = [
           description: "Page status (default: current)",
         },
       },
-      required: ["spaceId", "title", "markdown"],
+      required: ["spaceId", "title"],
     },
   },
   {
@@ -317,7 +346,8 @@ export const pageTools = [
     description:
       "Update an existing page from Markdown content. Automatically converts Markdown to Confluence storage format. " +
       "Supports headings, bold/italic/strikethrough, links, images, ordered/unordered lists, tables, blockquotes, " +
-      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules.",
+      "code blocks with syntax highlighting, Mermaid diagrams (via ```mermaid code blocks), inline code, and horizontal rules. " +
+      "For large documents, use markdownFilePath instead of markdown to avoid tool call size limits.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -333,7 +363,14 @@ export const pageTools = [
           type: "string",
           description:
             "The new page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
-            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks. " +
+            "Either this or markdownFilePath must be provided.",
+        },
+        markdownFilePath: {
+          type: "string",
+          description:
+            "Absolute path to a Markdown file on disk. Use this instead of the markdown parameter for large documents " +
+            "that may exceed tool call size limits. Takes precedence over markdown if both are provided.",
         },
         version: {
           type: "number",
@@ -350,7 +387,7 @@ export const pageTools = [
           description: "Optional message describing the changes",
         },
       },
-      required: ["pageId", "title", "markdown", "version"],
+      required: ["pageId", "title", "version"],
     },
   },
   {
@@ -359,7 +396,8 @@ export const pageTools = [
       "Create a new page from Markdown content using Atlassian Document Format (ADF). Automatically converts Markdown to ADF JSON. " +
       "Preferred for Mermaid diagrams (rendered natively by Confluence Mermaid apps via ```mermaid code blocks). " +
       "Also supports headings, bold/italic/strikethrough, links, images (as external media), ordered/unordered lists, tables, blockquotes, " +
-      "code blocks with syntax highlighting, inline code, and horizontal rules.",
+      "code blocks with syntax highlighting, inline code, and horizontal rules. " +
+      "For large documents, use markdownFilePath instead of markdown to avoid tool call size limits.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -375,7 +413,14 @@ export const pageTools = [
           type: "string",
           description:
             "The page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
-            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks. " +
+            "Either this or markdownFilePath must be provided.",
+        },
+        markdownFilePath: {
+          type: "string",
+          description:
+            "Absolute path to a Markdown file on disk. Use this instead of the markdown parameter for large documents " +
+            "that may exceed tool call size limits. Takes precedence over markdown if both are provided.",
         },
         parentId: {
           type: "string",
@@ -387,7 +432,7 @@ export const pageTools = [
           description: "Page status (default: current)",
         },
       },
-      required: ["spaceId", "title", "markdown"],
+      required: ["spaceId", "title"],
     },
   },
   {
@@ -396,7 +441,8 @@ export const pageTools = [
       "Update an existing page from Markdown content using Atlassian Document Format (ADF). Automatically converts Markdown to ADF JSON. " +
       "Preferred for Mermaid diagrams (rendered natively by Confluence Mermaid apps via ```mermaid code blocks). " +
       "Also supports headings, bold/italic/strikethrough, links, images (as external media), ordered/unordered lists, tables, blockquotes, " +
-      "code blocks with syntax highlighting, inline code, and horizontal rules.",
+      "code blocks with syntax highlighting, inline code, and horizontal rules. " +
+      "For large documents, use markdownFilePath instead of markdown to avoid tool call size limits.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -412,7 +458,14 @@ export const pageTools = [
           type: "string",
           description:
             "The new page content in Markdown format. Supports standard Markdown including headings, bold/italic, links, images, lists, tables, " +
-            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks.",
+            "code blocks (with language for syntax highlighting), and Mermaid diagrams using ```mermaid code blocks. " +
+            "Either this or markdownFilePath must be provided.",
+        },
+        markdownFilePath: {
+          type: "string",
+          description:
+            "Absolute path to a Markdown file on disk. Use this instead of the markdown parameter for large documents " +
+            "that may exceed tool call size limits. Takes precedence over markdown if both are provided.",
         },
         version: {
           type: "number",
@@ -429,7 +482,7 @@ export const pageTools = [
           description: "Optional message describing the changes",
         },
       },
-      required: ["pageId", "title", "markdown", "version"],
+      required: ["pageId", "title", "version"],
     },
   },
 ];
@@ -500,7 +553,8 @@ const GetPagesForLabelSchema = z.object({
 const CreatePageFromMarkdownSchema = z.object({
   spaceId: z.string(),
   title: z.string(),
-  markdown: z.string(),
+  markdown: z.string().optional(),
+  markdownFilePath: z.string().optional(),
   parentId: z.string().optional(),
   status: z.enum(["current", "draft"]).optional(),
 });
@@ -508,7 +562,8 @@ const CreatePageFromMarkdownSchema = z.object({
 const UpdatePageFromMarkdownSchema = z.object({
   pageId: z.string(),
   title: z.string(),
-  markdown: z.string(),
+  markdown: z.string().optional(),
+  markdownFilePath: z.string().optional(),
   version: z.number(),
   status: z.enum(["current", "draft"]).optional(),
   versionMessage: z.string().optional(),
@@ -517,7 +572,8 @@ const UpdatePageFromMarkdownSchema = z.object({
 const CreatePageFromMarkdownAdfSchema = z.object({
   spaceId: z.string(),
   title: z.string(),
-  markdown: z.string(),
+  markdown: z.string().optional(),
+  markdownFilePath: z.string().optional(),
   parentId: z.string().optional(),
   status: z.enum(["current", "draft"]).optional(),
 });
@@ -525,7 +581,8 @@ const CreatePageFromMarkdownAdfSchema = z.object({
 const UpdatePageFromMarkdownAdfSchema = z.object({
   pageId: z.string(),
   title: z.string(),
-  markdown: z.string(),
+  markdown: z.string().optional(),
+  markdownFilePath: z.string().optional(),
   version: z.number(),
   status: z.enum(["current", "draft"]).optional(),
   versionMessage: z.string().optional(),
@@ -697,7 +754,8 @@ export async function handlePageTool(
 
     case "confluence_create_page_from_markdown": {
       const input = CreatePageFromMarkdownSchema.parse(args);
-      const storageBody = markdownToStorageFormat(input.markdown);
+      const md = await resolveMarkdown(input.markdown, input.markdownFilePath);
+      const storageBody = markdownToStorageFormat(md);
 
       const body: Record<string, unknown> = {
         spaceId: input.spaceId,
@@ -716,7 +774,8 @@ export async function handlePageTool(
 
     case "confluence_update_page_from_markdown": {
       const input = UpdatePageFromMarkdownSchema.parse(args);
-      const storageBody = markdownToStorageFormat(input.markdown);
+      const md = await resolveMarkdown(input.markdown, input.markdownFilePath);
+      const storageBody = markdownToStorageFormat(md);
 
       const body: Record<string, unknown> = {
         id: input.pageId,
@@ -737,7 +796,8 @@ export async function handlePageTool(
 
     case "confluence_create_page_from_markdown_adf": {
       const input = CreatePageFromMarkdownAdfSchema.parse(args);
-      const adfDoc = markdownToAdf(input.markdown);
+      const md = await resolveMarkdown(input.markdown, input.markdownFilePath);
+      const adfDoc = markdownToAdf(md);
       await resolveMdLinksInAdf(client, adfDoc, input.spaceId);
 
       const body: Record<string, unknown> = {
@@ -757,7 +817,8 @@ export async function handlePageTool(
 
     case "confluence_update_page_from_markdown_adf": {
       const input = UpdatePageFromMarkdownAdfSchema.parse(args);
-      const adfDoc = markdownToAdf(input.markdown);
+      const md = await resolveMarkdown(input.markdown, input.markdownFilePath);
+      const adfDoc = markdownToAdf(md);
 
       // Resolve .md links — need spaceId from the existing page
       const titles = collectMdLinkTitles(adfDoc);

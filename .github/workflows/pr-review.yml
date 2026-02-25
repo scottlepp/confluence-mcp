@@ -114,7 +114,9 @@ jobs:
           # (GITHUB_TOKEN env var above is PAT_TOKEN for PR reviews, so we pass the automatic token separately)
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USE_GITHUB_MODELS: ${{ vars.USE_GITHUB_MODELS || 'true' }}
-          GITHUB_MODELS_MODEL: ${{ vars.GITHUB_MODELS_MODEL || 'openai/gpt-4o' }}
+          GITHUB_MODELS_MODEL: ${{ vars.GITHUB_MODELS_MODEL || 'openai/gpt-4.1' }}
+          # Chunked review: reviews each file separately to stay within token limits (default: true)
+          CHUNKED_REVIEW: ${{ vars.CHUNKED_REVIEW || 'true' }}
 
       - name: Post summary
         if: always()

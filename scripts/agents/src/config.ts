@@ -54,7 +54,7 @@ export function getConfig(): AgentConfig {
   // GitHub Models: enabled by default, uses GITHUB_MODELS_TOKEN or GITHUB_TOKEN for auth
   // GITHUB_MODELS_TOKEN takes priority (needed when GITHUB_TOKEN is a PAT without Models access)
   const useGitHubModels = process.env.USE_GITHUB_MODELS !== 'false';
-  const githubModelsModel = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4o';
+  const githubModelsModel = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4.1';
   const githubModelsToken = process.env.GITHUB_MODELS_TOKEN || githubToken;
 
   // Require at least one AI provider (GitHub Models enabled by default, or an API key)

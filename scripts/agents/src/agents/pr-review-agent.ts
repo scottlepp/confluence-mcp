@@ -1,4 +1,4 @@
-import { ToolSet } from 'ai';
+import { generateText, ToolSet } from 'ai';
 import { BaseAgent } from './base-agent.js';
 import {
   AgentContext,
@@ -12,8 +12,65 @@ import {
 import { createGitHubTools } from '../tools/github-tools.js';
 import { getConfig } from '../config.js';
 
+/** File patterns to exclude from review diffs (noise / not useful for code review) */
+const EXCLUDED_FILE_PATTERNS = [
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  'Cargo.lock',
+  'Gemfile.lock',
+  'composer.lock',
+  'poetry.lock',
+];
+
+/** Represents a single file's diff section */
+interface FileDiff {
+  filePath: string;
+  diff: string;
+}
+
 /**
- * PR Review Agent - Reviews pull requests and suggests improvements
+ * Filter a unified diff string to remove files matching excluded patterns
+ * and split into per-file sections.
+ */
+function prepareDiff(raw: string): { files: FileDiff[]; filtered: string[] } {
+  const filtered: string[] = [];
+  const files: FileDiff[] = [];
+  // Split on "diff --git" boundaries while keeping the delimiter
+  const fileDiffs = raw.split(/(?=^diff --git )/m);
+
+  for (const section of fileDiffs) {
+    if (!section.trim()) continue;
+    const nameMatch = section.match(/^diff --git a\/(.+?) b\//);
+    const filePath = nameMatch?.[1] ?? 'unknown';
+
+    const shouldExclude = EXCLUDED_FILE_PATTERNS.some((p) => section.includes(p));
+    if (shouldExclude) {
+      filtered.push(filePath);
+      continue;
+    }
+    files.push({ filePath, diff: section });
+  }
+
+  return { files, filtered };
+}
+
+/** Comment produced by a per-file chunk review */
+interface ChunkComment {
+  path: string;
+  line: number;
+  body: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+}
+
+/**
+ * PR Review Agent - Reviews pull requests and suggests improvements.
+ *
+ * Supports two modes:
+ *  - **normal**: sends the whole diff in one LLM call (needs a model with large context).
+ *  - **chunked**: reviews each file separately, then submits a combined review.
+ *    This works even with very small token limits (e.g. GitHub Models free tier 8 K).
  */
 export class PRReviewAgent extends BaseAgent<PRReviewAgentInput, PRReviewAgentOutput> {
   readonly name = 'pr-review-agent';
@@ -103,14 +160,22 @@ Repository: ${context.repoOwner}/${context.repoName}`;
   }
 
   getUserPrompt(input: PRReviewAgentInput, context: AgentContext): string {
+    const { files, filtered } = prepareDiff(input.diff || '');
+    const diff = files.map((f) => f.diff).join('');
+
+    const notes: string[] = [];
+    if (filtered.length > 0) {
+      notes.push(`Note: The following files were excluded from the diff (lock files): ${filtered.join(', ')}`);
+    }
+
     return `Review PR #${input.prNumber} in repository ${context.repoOwner}/${context.repoName}.
 
 Focus areas: ${input.focusAreas?.join(', ') || 'all areas'}
 Suggest tests: ${input.suggestTests !== false ? 'yes' : 'no'}
-
+${notes.length > 0 ? '\n' + notes.join('\n') + '\n' : ''}
 PR Diff:
 \`\`\`diff
-${input.diff || 'No diff provided'}
+${diff || 'No diff provided'}
 \`\`\`
 
 ---
@@ -121,6 +186,198 @@ Instructions:
 3. For EACH specific issue you find, note the file path and line number
 4. Use createReview to submit your review with inline comments`;
   }
+
+  // ── Chunked review helpers ──────────────────────────────────────────
+
+  private getChunkSystemPrompt(focusAreas: string[]): string {
+    const focusAreasStr = focusAreas.join(', ') || 'all areas';
+    return `You are a code review AI. Review the provided file diff and return ONLY a JSON object (no markdown fences, no extra text).
+
+Focus areas: ${focusAreasStr}
+
+Return JSON in exactly this format:
+{
+  "comments": [
+    {
+      "line": <diff line number>,
+      "body": "<review comment>",
+      "severity": "critical" | "high" | "medium" | "low" | "info"
+    }
+  ],
+  "suggestedTests": ["<test file suggestion>"],
+  "summary": "<one sentence summary of this file's changes>"
+}
+
+If there are no issues, return: { "comments": [], "suggestedTests": [], "summary": "<summary>" }
+
+SEVERITY GUIDE:
+- critical/high: security vulnerabilities, bugs, data loss, breaking changes
+- medium: missing error handling, code quality issues
+- low/info: style, minor improvements, nice-to-haves`;
+  }
+
+  private getChunkUserPrompt(fileDiff: FileDiff): string {
+    return `Review this file diff for ${fileDiff.filePath}:
+
+\`\`\`diff
+${fileDiff.diff}
+\`\`\``;
+  }
+
+  /**
+   * Review a single file diff and return structured comments.
+   */
+  private async reviewFileChunk(
+    fileDiff: FileDiff,
+    focusAreas: string[]
+  ): Promise<{ comments: ChunkComment[]; suggestedTests: string[]; summary: string }> {
+    try {
+      const { text } = await generateText({
+        model: this.model,
+        system: this.getChunkSystemPrompt(focusAreas),
+        prompt: this.getChunkUserPrompt(fileDiff),
+      });
+
+      // Parse JSON from the response (strip markdown fences if present)
+      const jsonStr = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(jsonStr);
+
+      const comments: ChunkComment[] = (parsed.comments || []).map(
+        (c: { line: number; body: string; severity?: string }) => ({
+          path: fileDiff.filePath,
+          line: c.line,
+          body: c.body,
+          severity: c.severity || 'info',
+        })
+      );
+
+      return {
+        comments,
+        suggestedTests: parsed.suggestedTests || [],
+        summary: parsed.summary || '',
+      };
+    } catch (error) {
+      this.log('warn', `Chunk review failed for ${fileDiff.filePath}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { comments: [], suggestedTests: [], summary: `Failed to review ${fileDiff.filePath}` };
+    }
+  }
+
+  /**
+   * Chunked review: review each file separately, then submit one combined GitHub review.
+   */
+  private async executeChunkedReview(
+    input: PRReviewAgentInput,
+    context: AgentContext
+  ): Promise<AgentResult<PRReviewAgentOutput>> {
+    const { files, filtered } = prepareDiff(input.diff || '');
+    const focusAreas = input.focusAreas || ['security', 'logic', 'tests'];
+
+    this.log('info', `Chunked review: ${files.length} files to review, ${filtered.length} excluded`);
+
+    // Review each file
+    const allComments: ChunkComment[] = [];
+    const allSuggestedTests: string[] = [];
+    const fileSummaries: string[] = [];
+
+    for (const fileDiff of files) {
+      this.log('info', `Reviewing chunk: ${fileDiff.filePath}`);
+      const result = await this.reviewFileChunk(fileDiff, focusAreas);
+      allComments.push(...result.comments);
+      allSuggestedTests.push(...result.suggestedTests);
+      if (result.summary) {
+        fileSummaries.push(`- **${fileDiff.filePath}**: ${result.summary}`);
+      }
+    }
+
+    // Determine approval based on severities
+    const hasCriticalOrHigh = allComments.some(
+      (c) => c.severity === 'critical' || c.severity === 'high'
+    );
+    const approval: PRReviewAgentOutput['approval'] = hasCriticalOrHigh
+      ? 'request_changes'
+      : 'approve';
+    const event = hasCriticalOrHigh ? 'REQUEST_CHANGES' : 'APPROVE';
+
+    // Build review body
+    const bodyParts: string[] = ['## AI Code Review\n'];
+    if (filtered.length > 0) {
+      bodyParts.push(`*Excluded lock files: ${filtered.join(', ')}*\n`);
+    }
+    if (fileSummaries.length > 0) {
+      bodyParts.push('### File Summaries\n' + fileSummaries.join('\n') + '\n');
+    }
+    if (allSuggestedTests.length > 0) {
+      const unique = [...new Set(allSuggestedTests)];
+      bodyParts.push('### Suggested Tests\n' + unique.map((t) => `- ${t}`).join('\n') + '\n');
+    }
+    const critCount = allComments.filter((c) => c.severity === 'critical').length;
+    const highCount = allComments.filter((c) => c.severity === 'high').length;
+    const medCount = allComments.filter((c) => c.severity === 'medium').length;
+    const lowCount = allComments.filter((c) => c.severity === 'low' || c.severity === 'info').length;
+    if (allComments.length > 0) {
+      bodyParts.push(`### Issues: ${allComments.length} total`);
+      if (critCount) bodyParts.push(`- ${critCount} critical`);
+      if (highCount) bodyParts.push(`- ${highCount} high`);
+      if (medCount) bodyParts.push(`- ${medCount} medium`);
+      if (lowCount) bodyParts.push(`- ${lowCount} low/info`);
+    } else {
+      bodyParts.push('No significant issues found.');
+    }
+    bodyParts.push(`\n**Recommendation:** ${event === 'APPROVE' ? 'Approve' : 'Request changes'}`);
+
+    const reviewBody = bodyParts.join('\n');
+
+    // Submit combined review via GitHub API
+    const githubTools = createGitHubTools(context.repoOwner, context.repoName);
+    const reviewComments = allComments.map((c) => ({
+      path: c.path,
+      line: c.line,
+      body: `**[${c.severity.toUpperCase()}]** ${c.body}`,
+    }));
+
+    const executeFn = githubTools.createReview.execute;
+    if (!executeFn) {
+      throw new Error('createReview tool has no execute function');
+    }
+    const reviewResult = await executeFn(
+      {
+        prNumber: input.prNumber,
+        body: reviewBody,
+        event,
+        comments: reviewComments.length > 0 ? reviewComments : undefined,
+        enableAutoMerge: event === 'APPROVE',
+      },
+      { toolCallId: '', messages: [], abortSignal: undefined }
+    );
+
+    this.log('info', 'Chunked review submitted', { reviewResult });
+
+    // Map to output
+    const issues: ReviewIssue[] = allComments.map((c) => ({
+      severity: c.severity,
+      category: 'code-review',
+      file: c.path,
+      line: c.line,
+      message: c.body,
+    }));
+
+    return {
+      success: true,
+      data: {
+        summary: reviewBody,
+        issues,
+        suggestions: [],
+        suggestedTests: [...new Set(allSuggestedTests)],
+        approval,
+      },
+      proposedChanges: [],
+      validated: true,
+    };
+  }
+
+  // ── Main execute ────────────────────────────────────────────────────
 
   async execute(
     input: PRReviewAgentInput,
@@ -142,9 +399,19 @@ Instructions:
       prNumber: input.prNumber,
     };
 
-    this.log('info', 'Starting PR review', { input });
+    this.log('info', 'Starting PR review', {
+      prNumber: input.prNumber,
+      chunkedReview: input.chunkedReview ?? false,
+      focusAreas: input.focusAreas,
+    });
 
     try {
+      // Use chunked review when requested
+      if (input.chunkedReview) {
+        return await this.executeChunkedReview(input, reviewContext);
+      }
+
+      // Normal full-diff review
       const { text, proposedChanges, toolCalls } = await this.runAgentLoop(
         input,
         reviewContext
@@ -252,6 +519,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const fs = await import('fs/promises');
   const diff = await fs.readFile(prDiffFile, 'utf-8');
 
+  const chunkedReview = process.env.CHUNKED_REVIEW !== 'false';
+
   const agent = new PRReviewAgent();
   const context: AgentContext = {
     workingDir: process.cwd(),
@@ -265,6 +534,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     suggestTests: true,
     focusAreas: ['security', 'logic', 'tests'],
     diff,
+    chunkedReview,
   };
 
   agent.execute(input, context).then((result) => {
