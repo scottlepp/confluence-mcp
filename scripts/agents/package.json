@@ -14,7 +14,7 @@
     "pr-review": "tsx src/agents/pr-review-agent.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.45",
+    "@ai-sdk/anthropic": "^3.0.48",
     "@ai-sdk/deepseek": "^2.0.20",
     "@ai-sdk/google": "^3.0.30",
     "@ai-sdk/groq": "^3.0.25",
