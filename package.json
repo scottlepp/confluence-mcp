@@ -30,9 +30,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "dotenv": "^17.3.1",
-    "marked": "^17.0.4",
+    "marked": "^17.0.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
