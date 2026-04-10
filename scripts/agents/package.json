@@ -23,7 +23,7 @@
     "@ai-sdk/openai-compatible": "^2.0.38",
     "@ai-sdk/perplexity": "^3.0.27",
     "@octokit/rest": "^22.0.1",
-    "@openrouter/ai-sdk-provider": "^2.3.3",
+    "@openrouter/ai-sdk-provider": "^2.5.1",
     "ai": "^6.0.144",
     "dotenv": "^17.4.1",
     "zod": "^4.3.6"
